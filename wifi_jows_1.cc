@@ -29,6 +29,15 @@
 #include "ns3/flow-monitor-helper.h"
 #include "ns3/ipv4-flow-classifier.h"
 
+//for building positioning modelling
+#include <ns3/buildings-module.h>
+#include <ns3/building.h>
+#include <ns3/buildings-helper.h>
+#include <ns3/buildings-propagation-loss-model.h>
+#include <ns3/constant-position-mobility-model.h>
+#include <ns3/hybrid-buildings-propagation-loss-model.h>
+#include <ns3/mobility-building-info.h>
+
 using namespace ns3; 
 
 NS_LOG_COMPONENT_DEFINE ("wifi-qos-test");
@@ -106,21 +115,30 @@ int main (int argc, char *argv[])
   uint32_t nSTA = 4;
   uint32_t packetSize = 1472;
   Time appsStart = Seconds (0);
-  float simTime = 10;
+  float simTime = 10; // set as calcStart + time 
   float calcStart = 0;
   double Mbps = 54;
   uint32_t seed = 1;
+  uint16_t roomsInAxis = 2;
+  uint16_t  floors = 3;
+  //bool rtsCts = false;
+
 
 
 /* ===== Command Line parameters ===== */
 
   CommandLine cmd;
-  cmd.AddValue ("nSTA",      "Number of stations",                 nSTA);
-  cmd.AddValue ("pSize",     "Packet size [B]",                    packetSize);
-  cmd.AddValue ("end",       "simulation time [s]",                simTime);
-  cmd.AddValue ("calcStart", "start of results analysis [s]",      calcStart);
-  cmd.AddValue ("Mbps",      "traffic generated per queue [Mbps]", Mbps);
-  cmd.AddValue ("seed",      "Seed",                               seed);
+  cmd.AddValue ("nSTA",        "Number of stations",                           nSTA);
+  cmd.AddValue ("pSize",       "Packet size [B]",                              packetSize);
+  cmd.AddValue ("end",         "simulation time [s]",                          simTime);
+  cmd.AddValue ("calcStart",   "start of results analysis [s]",                calcStart);
+  cmd.AddValue ("Mbps",        "traffic generated per queue [Mbps]",           Mbps);
+  cmd.AddValue ("seed",        "Seed",                                         seed);
+  cmd.AddValue ("roomsInAxis", "Number of room in x and y axis in building",   roomsInAxis);
+  cmd.AddValue ("floors",      "Number of floors in building",                 floors);
+  //cmd.AddValue ("RTSCTS",      "use RTS/CTS?",                                 rtsCts);
+
+
   cmd.Parse (argc, argv);
 
   Time simulationTime = Seconds (simTime);
@@ -128,15 +146,30 @@ int main (int argc, char *argv[])
  
   Packet::EnablePrinting ();
 
+  // AP
+  NodeContainer ap;
+  ap.Create(1);
+
+  //Stations
   NodeContainer sta;
-  sta.Create (nSTA+1);
+  sta.Create (nSTA);
 
 
 
 /* ======== Positioning / Mobility ======= */
-  
+  // AP
+  Ptr<ListPositionAllocator> positionAlloc_ap = CreateObject<ListPositionAllocator> ();
+  positionAlloc_ap->Add (Vector (0.0, 0.0, 0.0));
+
+  MobilityHelper mobility_ap;
+  mobility_ap.SetPositionAllocator (positionAlloc_ap);
+  mobility_ap.SetMobilityModel ("ns3::ConstantVelocityMobilityModel");
+
+  mobility_ap.Install(ap);
+
+  // Stations
   Ptr<ListPositionAllocator> positionAlloc = CreateObject<ListPositionAllocator> ();
-  positionAlloc->Add (Vector (0.0, 0.0, 0.0));
+  //positionAlloc->Add (Vector (0.0, 0.0, 0.0));
   for (uint32_t i = 0; i < nSTA; i++){
     positionAlloc->Add (Vector (4.0, 4.0, 0.0));
     positionAlloc->Add (Vector (4.0, 4.0, 1.0));
@@ -154,8 +187,31 @@ int main (int argc, char *argv[])
 
 /* ===== Propagation Model configuration ===== */
 
-  YansWifiChannelHelper channel = YansWifiChannelHelper::Default ();
+  //YansWifiChannelHelper channel = YansWifiChannelHelper::Default ();
 
+  //building propagation loss model
+  //building definition:
+  Ptr<Building> b = CreateObject <Building> ();
+    b->SetBoundaries (Box (0.0, 50.0, 0.0, 50.0, 0.0, 3.0));
+    b->SetBuildingType (Building::Office);
+    b->SetExtWallsType (Building::ConcreteWithWindows);
+    b->SetNFloors (1);
+    b->SetNRoomsX (roomsInAxis);
+    b->SetNRoomsY (roomsInAxis);
+
+  BuildingsHelper::Install (sta);
+  BuildingsHelper::Install (ap);
+
+  YansWifiChannelHelper channel;
+  channel.SetPropagationDelay("ns3::ConstantSpeedPropagationDelayModel");
+  channel.AddPropagationLoss ("ns3::HybridBuildingsPropagationLossModel", //see https://www.nsnam.org/doxygen/classns3_1_1_hybrid_buildings_propagation_loss_model.html#details
+                              "Frequency", DoubleValue (5.0 * 1e9),// 5GHz
+                              "Environment", StringValue("Urban"),
+                              "CitySize", StringValue("Small"),
+                              "ShadowSigmaOutdoor", DoubleValue (7.0),
+                              "ShadowSigmaIndoor", DoubleValue (8.0),
+                              "ShadowSigmaExtWalls", DoubleValue (1.0),
+                              "InternalWallLoss", DoubleValue (10.0));
 
 
 /* ===== MAC and PHY configuration ===== */
@@ -165,23 +221,31 @@ int main (int argc, char *argv[])
 
   WifiHelper wifi;
   WifiMacHelper mac; //802.11ax
-  wifi.SetStandard (WIFI_PHY_STANDARD_80211ax_5GHZ);
+  wifi.SetStandard (WIFI_PHY_STANDARD_80211ac);
 
   //MAC parameters
   //for complete list of available parameters - see Attributes on https://www.nsnam.org/doxygen/classns3_1_1_adhoc_wifi_mac.html#pri-methods
-  mac.SetType ("ns3::AdhocWifiMac",
-               "QosSupported", BooleanValue (true),
-               "Ssid", SsidValue (Ssid ("TEST")) );
+  //mac.SetType ("ns3::AdhocWifiMac",
+  //             "QosSupported", BooleanValue (true),
+  //             "Ssid", SsidValue (Ssid ("TEST")) );
+
+  //MINSTREL rate manager for 802.11n/ac - see Attributes on https://www.nsnam.org/doxygen/classns3_1_1_minstrel_ht_wifi_manager.html#pri-attribs
+  wifi.SetRemoteStationManager ("ns3::MinstrelHtWifiManager");
 
 
   //WiFi Remote Station Manager parameters 
 
   //Constant Rate setting - see Attributes on https://www.nsnam.org/doxygen/classns3_1_1_constant_rate_wifi_manager.html#pri-attribs
-  wifi.SetRemoteStationManager ("ns3::ConstantRateWifiManager",
-							    "DataMode", StringValue ("OfdmRate54Mbps") ); 
+  //wifi.SetRemoteStationManager ("ns3::ConstantRateWifiManager",
+	//						    "DataMode", StringValue ("OfdmRate54Mbps") ); 
 
+  Ssid ssid = Ssid ("TEST");
 
+  mac.SetType ("ns3::StaWifiMac", "Ssid", SsidValue (ssid));
   NetDeviceContainer staDevices = wifi.Install (phy, mac, sta);
+
+  mac.SetType ("ns3::ApWifiMac", "Ssid", SsidValue (ssid));
+  NetDeviceContainer apDevice = wifi.Install (phy, mac, ap);
 
 
 
@@ -190,21 +254,27 @@ int main (int argc, char *argv[])
 
   InternetStackHelper stack;
   stack.Install (sta);
+  stack.Install (ap);
 
   Ipv4AddressHelper address;
 
   address.SetBase ("192.168.1.0", "255.255.255.0");
+
+  Ipv4InterfaceContainer apIf;
+  apIf = address.Assign (apDevice);
+
   Ipv4InterfaceContainer staIf;
   staIf = address.Assign (staDevices);
+
 
 
 
 /* ===== Setting applications ===== */
 
   //Configure traffic destination (sink)
-  uint32_t destinationSTANumber = nSTA; //for one common traffic destination
-  Ipv4Address destination = staIf.GetAddress (destinationSTANumber);
-  Ptr<Node> dest = sta.Get (destinationSTANumber);
+  //uint32_t destinationSTANumber = nSTA; //for one common traffic destination
+  Ipv4Address destination = apIf.GetAddress (0);
+  Ptr<Node> dest = ap.Get (0);
 
   PacketSinkHelper sink ("ns3::UdpSocketFactory", InetSocketAddress (destination, 1000) );
   sink.Install (dest);
