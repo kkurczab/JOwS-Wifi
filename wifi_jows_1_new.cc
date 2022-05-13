@@ -175,7 +175,7 @@ int main (int argc, char *argv[])
 
   //Stations
   //Ground floor
-  positionAlloc->Add (Vector (2.0, 13.0, 0));
+  positionAlloc->Add (Vector (2.0, 18.0, 0));
   positionAlloc->Add (Vector (2.0, 2.0, 0));
   positionAlloc->Add (Vector (8.0, 2.0, 0));
 
