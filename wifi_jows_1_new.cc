@@ -37,8 +37,10 @@
 #include <ns3/constant-position-mobility-model.h>
 #include <ns3/hybrid-buildings-propagation-loss-model.h>
 #include <ns3/mobility-building-info.h>
+#include <ns3/config-store-module.h>
 
 #include <string>
+
 
 using namespace ns3; 
 
@@ -124,6 +126,7 @@ int main (int argc, char *argv[])
   uint16_t roomsInAxis = 2;
   uint16_t  floors = 3;
   //bool rtsCts = false;
+  //uint32_t rtsThreshold = 65535;
 
 
 
@@ -147,6 +150,11 @@ int main (int argc, char *argv[])
   ns3::RngSeedManager::SetSeed (seed);
  
   Packet::EnablePrinting ();
+  /*
+  if (rtsCts) {
+    rtsThreshold = 0;
+  }
+  */
 
   // AP
   NodeContainer ap;
@@ -159,17 +167,17 @@ int main (int argc, char *argv[])
 
 
 /* ======== Positioning / Mobility ======= */
-  
+
   Ptr<ListPositionAllocator> positionAlloc = CreateObject<ListPositionAllocator> ();
 
   //AP
-  positionAlloc->Add (Vector (2.0, 12.0, 0.0));
+  positionAlloc->Add (Vector (2.0, 12.0, 0));
 
   //Stations
   //Ground floor
-  positionAlloc->Add (Vector (2.0, 18.0, 0.0));
-  positionAlloc->Add (Vector (2.0, 2.0, 0.0));
-  positionAlloc->Add (Vector (8.0, 2.0, 0.0));
+  positionAlloc->Add (Vector (2.0, 13.0, 0));
+  positionAlloc->Add (Vector (2.0, 2.0, 0));
+  positionAlloc->Add (Vector (8.0, 2.0, 0));
 
   //First floor
   positionAlloc->Add (Vector (2.0, 18.0, 2.0));    
@@ -194,12 +202,10 @@ int main (int argc, char *argv[])
 
 /* ===== Propagation Model configuration ===== */
 
-  YansWifiChannelHelper channel = YansWifiChannelHelper::Default ();
-
   
   //building propagation loss model
-  //building definition:
   
+  //building definition:
   Ptr<Building> b = CreateObject <Building> ();
     b->SetBoundaries (Box (0.0, 20.0, 0.0, 30.0, 0.0, 6.0));
     b->SetBuildingType (Building::Office);
@@ -211,7 +217,7 @@ int main (int argc, char *argv[])
   BuildingsHelper::Install (sta);
   BuildingsHelper::Install (ap);
   
-
+  YansWifiChannelHelper channel = YansWifiChannelHelper::Default ();
   channel.SetPropagationDelay("ns3::ConstantSpeedPropagationDelayModel");
   
   channel.AddPropagationLoss ("ns3::HybridBuildingsPropagationLossModel", //see https://www.nsnam.org/doxygen/classns3_1_1_hybrid_buildings_propagation_loss_model.html#details
@@ -223,15 +229,14 @@ int main (int argc, char *argv[])
                               "ShadowSigmaExtWalls", DoubleValue (1.0),
                               "InternalWallLoss", DoubleValue (10.0));
   
-
 /* ===== MAC and PHY configuration ===== */
 
-  YansWifiPhyHelper phy = YansWifiPhyHelper::Default ();
+  YansWifiPhyHelper phy;
   phy.SetChannel (channel.Create ());
 
   WifiHelper wifi;
   WifiMacHelper mac; //802.11ax
-  wifi.SetStandard (WIFI_PHY_STANDARD_80211ac);
+  wifi.SetStandard (WIFI_STANDARD_80211ac);
 
   //MAC parameters
   //for complete list of available parameters - see Attributes on https://www.nsnam.org/doxygen/classns3_1_1_adhoc_wifi_mac.html#pri-methods
@@ -289,6 +294,11 @@ int main (int argc, char *argv[])
   PacketSinkHelper sink ("ns3::UdpSocketFactory", InetSocketAddress (destination, 1000) );
   sink.Install (dest);
 
+  // Print ap position
+  std::cout << "AP position x: " << dest->GetObject<MobilityModel>()->GetPosition().x <<std::endl;
+  std::cout << "AP position y: " << dest->GetObject<MobilityModel>()->GetPosition().y <<std::endl;
+  std::cout << "AP position z: " << dest->GetObject<MobilityModel>()->GetPosition().z <<std::endl;
+
 
   //Configure CBR traffic sources
   DataRate dataRate = DataRate (1000000 * Mbps);
@@ -303,6 +313,12 @@ int main (int argc, char *argv[])
       cbr.SetAttribute ("StopTime",   TimeValue (simulationTime) );
 
       cbr.Install (node);
+
+      std::cout << "Station positions:" << std::endl;
+      // Print ap position
+      std::cout << "Station " << std::to_string(i) << " position x: " << node->GetObject<MobilityModel>()->GetPosition().x <<std::endl;
+      std::cout << "Station " << std::to_string(i) << " position y: " << node->GetObject<MobilityModel>()->GetPosition().y <<std::endl;
+      std::cout << "Station " << std::to_string(i) << " position z: " << node->GetObject<MobilityModel>()->GetPosition().z <<std::endl;
 
     }
 
@@ -328,6 +344,14 @@ int main (int argc, char *argv[])
 
   SimulationHelper::PopulateArpCache ();
   Simulator::Stop (simulationTime);
+
+  Config::SetDefault ("ns3::ConfigStore::Filename", StringValue ("output-attributes.xml"));
+  Config::SetDefault ("ns3::ConfigStore::FileFormat", StringValue ("Xml"));
+  Config::SetDefault ("ns3::ConfigStore::Mode", StringValue ("Save"));
+  ConfigStore outputConfig2;
+  outputConfig2.ConfigureDefaults ();
+  outputConfig2.ConfigureAttributes ();
+
   Simulator::Run ();
   Simulator::Destroy ();
 
