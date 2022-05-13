@@ -236,7 +236,7 @@ int main (int argc, char *argv[])
 
   WifiHelper wifi;
   WifiMacHelper mac; //802.11ax
-  wifi.SetStandard (WIFI_STANDARD_80211ac);
+  wifi.SetStandard (WIFI_STANDARD_80211ax_5GHZ);
 
   //MAC parameters
   //for complete list of available parameters - see Attributes on https://www.nsnam.org/doxygen/classns3_1_1_adhoc_wifi_mac.html#pri-methods
@@ -295,6 +295,7 @@ int main (int argc, char *argv[])
   sink.Install (dest);
 
   // Print ap position
+  std::cout << "----------------------AP position--------------------" << std::endl;
   std::cout << "AP position x: " << dest->GetObject<MobilityModel>()->GetPosition().x <<std::endl;
   std::cout << "AP position y: " << dest->GetObject<MobilityModel>()->GetPosition().y <<std::endl;
   std::cout << "AP position z: " << dest->GetObject<MobilityModel>()->GetPosition().z <<std::endl;
@@ -302,6 +303,8 @@ int main (int argc, char *argv[])
 
   //Configure CBR traffic sources
   DataRate dataRate = DataRate (1000000 * Mbps);
+
+  std::cout << "----------------------Stations position--------------------" << std::endl;
 
   for (uint32_t i = 0; i < nSTA; i++) 
     {
@@ -314,8 +317,7 @@ int main (int argc, char *argv[])
 
       cbr.Install (node);
 
-      std::cout << "Station positions:" << std::endl;
-      // Print ap position
+      // Print station position
       std::cout << "Station " << std::to_string(i) << " position x: " << node->GetObject<MobilityModel>()->GetPosition().x <<std::endl;
       std::cout << "Station " << std::to_string(i) << " position y: " << node->GetObject<MobilityModel>()->GetPosition().y <<std::endl;
       std::cout << "Station " << std::to_string(i) << " position z: " << node->GetObject<MobilityModel>()->GetPosition().z <<std::endl;
@@ -345,12 +347,15 @@ int main (int argc, char *argv[])
   SimulationHelper::PopulateArpCache ();
   Simulator::Stop (simulationTime);
 
-  Config::SetDefault ("ns3::ConfigStore::Filename", StringValue ("output-attributes.xml"));
-  Config::SetDefault ("ns3::ConfigStore::FileFormat", StringValue ("Xml"));
+  // To save parameters to file
+  /*
+  Config::SetDefault ("ns3::ConfigStore::Filename", StringValue ("output-attributes.txt"));
+  Config::SetDefault ("ns3::ConfigStore::FileFormat", StringValue ("RawText"));
   Config::SetDefault ("ns3::ConfigStore::Mode", StringValue ("Save"));
   ConfigStore outputConfig2;
   outputConfig2.ConfigureDefaults ();
   outputConfig2.ConfigureAttributes ();
+  */
 
   Simulator::Run ();
   Simulator::Destroy ();
@@ -358,6 +363,7 @@ int main (int argc, char *argv[])
 
 
 /* ===== printing results ===== */
+  std::cout << "---------------------------Results----------------" << std::endl;
 
   monitor->CheckForLostPackets ();
 
