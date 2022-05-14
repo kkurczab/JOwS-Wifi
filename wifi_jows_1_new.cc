@@ -28,6 +28,7 @@
 #include "ns3/rng-seed-manager.h"
 #include "ns3/flow-monitor-helper.h"
 #include "ns3/ipv4-flow-classifier.h"
+#include "ns3/config.h"
 
 //for building positioning modelling
 #include <ns3/buildings-module.h>
@@ -38,6 +39,7 @@
 #include <ns3/hybrid-buildings-propagation-loss-model.h>
 #include <ns3/mobility-building-info.h>
 #include <ns3/config-store-module.h>
+#include <ns3/mobility-building-info.h>
 
 #include <string>
 
@@ -125,9 +127,9 @@ int main (int argc, char *argv[])
   uint32_t seed = 1;
   uint16_t roomsInAxis = 2;
   uint16_t  floors = 3;
-  //bool rtsCts = false;
-  //uint32_t rtsThreshold = 65535;
-
+  double wallsLoss = 5.0;
+  double frequency = 2.4; //GHz
+  bool rtsCts = false;
 
 
 /* ===== Command Line parameters ===== */
@@ -141,20 +143,23 @@ int main (int argc, char *argv[])
   cmd.AddValue ("seed",        "Seed",                                         seed);
   cmd.AddValue ("roomsInAxis", "Number of room in x and y axis in building",   roomsInAxis);
   cmd.AddValue ("floors",      "Number of floors in building",                 floors);
-  //cmd.AddValue ("RTSCTS",      "use RTS/CTS?",                                 rtsCts);
+  cmd.AddValue ("wallsLoss",   "Internal walls loss in db",                    wallsLoss);
+  cmd.AddValue ("frequency",   "Frequency [GHz] - 2.4 or 5",                   frequency);
+  cmd.AddValue ("RTSCTS",      "use RTS/CTS?",                                 rtsCts);
 
 
   cmd.Parse (argc, argv);
 
   Time simulationTime = Seconds (simTime);
-  ns3::RngSeedManager::SetSeed (seed);
+  //ns3::RngSeedManager::SetSeed (seed);
+  ns3::RngSeedManager::SetRun (seed);
  
   Packet::EnablePrinting ();
-  /*
+  
+  // enable or not rts/cts
   if (rtsCts) {
-    rtsThreshold = 0;
+	  Config::SetDefault("ns3::WifiRemoteStationManager::RtsCtsThreshold", StringValue ("0"));
   }
-  */
 
   // AP
   NodeContainer ap;
@@ -175,21 +180,21 @@ int main (int argc, char *argv[])
 
   //Stations
   //Ground floor
-  positionAlloc->Add (Vector (2.0, 18.0, 0));
-  positionAlloc->Add (Vector (2.0, 2.0, 0));
-  positionAlloc->Add (Vector (8.0, 2.0, 0));
+  positionAlloc->Add (Vector (2.0, 18.0, 1));
+  positionAlloc->Add (Vector (2.0, 2.0, 1));
+  positionAlloc->Add (Vector (8.0, 2.0, 1));
 
   //First floor
-  positionAlloc->Add (Vector (2.0, 18.0, 2.0));    
-  positionAlloc->Add (Vector (8.0, 18.0, 2.0));
-  positionAlloc->Add (Vector (2.0, 2.0, 2.0));
-  positionAlloc->Add (Vector (6.0, 8.0, 2.0));
-  positionAlloc->Add (Vector (8.0, 5.0, 2.0));
-  positionAlloc->Add (Vector (6.0, 2.0, 2.0));
+  positionAlloc->Add (Vector (2.0, 18.0, 3.0));    
+  positionAlloc->Add (Vector (8.0, 18.0, 3.0));
+  positionAlloc->Add (Vector (2.0, 2.0, 3.0));
+  positionAlloc->Add (Vector (6.0, 8.0, 3.0));
+  positionAlloc->Add (Vector (8.0, 5.0, 3.0));
+  positionAlloc->Add (Vector (6.0, 2.0, 3.0));
 
   //Second floor
-  positionAlloc->Add (Vector (8.0, 18.0, 4.0));
-  positionAlloc->Add (Vector (2.0, 2.0, 4.0));
+  positionAlloc->Add (Vector (8.0, 18.0, 5.0));
+  positionAlloc->Add (Vector (2.0, 2.0, 5.0));
 
 
   MobilityHelper mobility;
@@ -202,12 +207,9 @@ int main (int argc, char *argv[])
 
 /* ===== Propagation Model configuration ===== */
 
-  
-  //building propagation loss model
-  
   //building definition:
   Ptr<Building> b = CreateObject <Building> ();
-    b->SetBoundaries (Box (0.0, 20.0, 0.0, 30.0, 0.0, 6.0));
+    b->SetBoundaries (Box (0.0, 50.0, 0.0, 50.0, 0.0, 6.0));
     b->SetBuildingType (Building::Office);
     b->SetExtWallsType (Building::ConcreteWithWindows);
     b->SetNFloors (floors);
@@ -219,41 +221,42 @@ int main (int argc, char *argv[])
   
   YansWifiChannelHelper channel = YansWifiChannelHelper::Default ();
   channel.SetPropagationDelay("ns3::ConstantSpeedPropagationDelayModel");
-  
-  channel.AddPropagationLoss ("ns3::HybridBuildingsPropagationLossModel", //see https://www.nsnam.org/doxygen/classns3_1_1_hybrid_buildings_propagation_loss_model.html#details
-                              "Frequency", DoubleValue (5.0 * 1e9),// 5GHz
-                              "Environment", StringValue("Urban"),
-                              "CitySize", StringValue("Small"),
-                              "ShadowSigmaOutdoor", DoubleValue (7.0),
-                              "ShadowSigmaIndoor", DoubleValue (8.0),
-                              "ShadowSigmaExtWalls", DoubleValue (1.0),
-                              "InternalWallLoss", DoubleValue (10.0));
-  
+
+
 /* ===== MAC and PHY configuration ===== */
 
   YansWifiPhyHelper phy;
   phy.SetChannel (channel.Create ());
 
+  // set building propagation loss model
+  // see https://www.nsnam.org/doxygen/classns3_1_1_hybrid_buildings_propagation_loss_model.html#details
+  Ptr<HybridBuildingsPropagationLossModel> buildingLossModel = CreateObject<HybridBuildingsPropagationLossModel>();
+  Config::Set ("/ChannelList/*/$ns3::YansWifiChannel/PropagationLossModel", PointerValue (buildingLossModel));
+  Config::Set ("/ChannelList/*/$ns3::YansWifiChannel/PropagationLossModel/$ns3::HybridBuildingsPropagationLossModel/Frequency", DoubleValue (frequency * 1e9));
+  Config::Set ("/ChannelList/*/$ns3::YansWifiChannel/PropagationLossModel/$ns3::HybridBuildingsPropagationLossModel/Environment", StringValue("Urban"));
+  Config::Set ("/ChannelList/*/$ns3::YansWifiChannel/PropagationLossModel/$ns3::HybridBuildingsPropagationLossModel/CitySize", StringValue("Small"));
+  Config::Set ("/ChannelList/*/$ns3::YansWifiChannel/PropagationLossModel/$ns3::HybridBuildingsPropagationLossModel/ShadowSigmaOutdoor", DoubleValue (7.0));
+  Config::Set ("/ChannelList/*/$ns3::YansWifiChannel/PropagationLossModel/$ns3::HybridBuildingsPropagationLossModel/ShadowSigmaIndoor", DoubleValue (8.0));
+  Config::Set ("/ChannelList/*/$ns3::YansWifiChannel/PropagationLossModel/$ns3::HybridBuildingsPropagationLossModel/ShadowSigmaExtWalls", DoubleValue (1.0));
+  Config::Set ("/ChannelList/*/$ns3::YansWifiChannel/PropagationLossModel/$ns3::HybridBuildingsPropagationLossModel/InternalWallLoss",  DoubleValue (2.0));
+  
+
   WifiHelper wifi;
   WifiMacHelper mac; //802.11ax
-  wifi.SetStandard (WIFI_STANDARD_80211ax_5GHZ);
+  if (frequency == 2.4){
+    wifi.SetStandard (WIFI_STANDARD_80211ax_2_4GHZ);
+  } else if (frequency == 5.0){
+    wifi.SetStandard (WIFI_STANDARD_80211ax_5GHZ);
+  } else {
+    NS_ABORT_MSG("Wrong frequency selected.\n");
+  }
 
-  //MAC parameters
-  //for complete list of available parameters - see Attributes on https://www.nsnam.org/doxygen/classns3_1_1_adhoc_wifi_mac.html#pri-methods
-  //mac.SetType ("ns3::AdhocWifiMac",
-  //             "QosSupported", BooleanValue (true),
-  //             "Ssid", SsidValue (Ssid ("TEST")) );
-
+  //WiFi Remote Station Manager
   //MINSTREL rate manager for 802.11n/ac - see Attributes on https://www.nsnam.org/doxygen/classns3_1_1_minstrel_ht_wifi_manager.html#pri-attribs
   wifi.SetRemoteStationManager ("ns3::MinstrelHtWifiManager");
 
-
-  //WiFi Remote Station Manager parameters 
-
-  //Constant Rate setting - see Attributes on https://www.nsnam.org/doxygen/classns3_1_1_constant_rate_wifi_manager.html#pri-attribs
-  //wifi.SetRemoteStationManager ("ns3::ConstantRateWifiManager",
-	//						    "DataMode", StringValue ("OfdmRate54Mbps") ); 
-
+  // MAC parameters
+  // see Attributes on https://www.nsnam.org/doxygen/classns3_1_1_adhoc_wifi_mac.html#pri-methods
   Ssid ssid = Ssid ("TEST");
 
   mac.SetType ("ns3::StaWifiMac", "Ssid", SsidValue (ssid));
@@ -287,7 +290,6 @@ int main (int argc, char *argv[])
 /* ===== Setting applications ===== */
 
   //Configure traffic destination (sink)
-  //uint32_t destinationSTANumber = nSTA; //for one common traffic destination
   Ipv4Address destination = apIf.GetAddress (0);
   Ptr<Node> dest = ap.Get (0);
 
