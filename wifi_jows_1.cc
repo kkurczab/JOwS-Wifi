@@ -28,6 +28,7 @@
 #include "ns3/rng-seed-manager.h"
 #include "ns3/flow-monitor-helper.h"
 #include "ns3/ipv4-flow-classifier.h"
+#include "ns3/config.h"
 
 //for building positioning modelling
 #include <ns3/buildings-module.h>
@@ -123,7 +124,8 @@ int main (int argc, char *argv[])
   uint32_t seed = 1;
   uint16_t roomsInAxis = 2;
   uint16_t  floors = 3;
-  //bool rtsCts = false;
+  double wallsLoss = 5.0;
+  bool rtsCts = false;
 
 
 
@@ -138,15 +140,22 @@ int main (int argc, char *argv[])
   cmd.AddValue ("seed",        "Seed",                                         seed);
   cmd.AddValue ("roomsInAxis", "Number of room in x and y axis in building",   roomsInAxis);
   cmd.AddValue ("floors",      "Number of floors in building",                 floors);
-  //cmd.AddValue ("RTSCTS",      "use RTS/CTS?",                                 rtsCts);
+  cmd.AddValue ("wallsLoss",   "Internal walls loss in db",                    wallsLoss);
+  cmd.AddValue ("RTSCTS",      "use RTS/CTS?",                                 rtsCts);
 
 
   cmd.Parse (argc, argv);
 
   Time simulationTime = Seconds (simTime);
-  ns3::RngSeedManager::SetSeed (seed);
+  //ns3::RngSeedManager::SetSeed (seed);
+  ns3::RngSeedManager::SetRun (seed);
  
   Packet::EnablePrinting ();
+
+  // enable or not rts/cts
+  if (rtsCts) {
+	  Config::SetDefault("ns3::WifiRemoteStationManager::RtsCtsThreshold", StringValue ("0"));
+  }
 
   // AP
   NodeContainer ap;
@@ -194,12 +203,7 @@ int main (int argc, char *argv[])
 
 /* ===== Propagation Model configuration ===== */
 
-  YansWifiChannelHelper channel = YansWifiChannelHelper::Default ();
-
-  
-  //building propagation loss model
   //building definition:
-  
   Ptr<Building> b = CreateObject <Building> ();
     b->SetBoundaries (Box (0.0, 20.0, 0.0, 30.0, 0.0, 6.0));
     b->SetBuildingType (Building::Office);
@@ -211,44 +215,38 @@ int main (int argc, char *argv[])
   BuildingsHelper::Install (sta);
   BuildingsHelper::Install (ap);
   
-
+  YansWifiChannelHelper channel = YansWifiChannelHelper::Default ();
   channel.SetPropagationDelay("ns3::ConstantSpeedPropagationDelayModel");
-  
-  channel.AddPropagationLoss ("ns3::HybridBuildingsPropagationLossModel", //see https://www.nsnam.org/doxygen/classns3_1_1_hybrid_buildings_propagation_loss_model.html#details
-                              "Frequency", DoubleValue (5.0 * 1e9),// 5GHz
-                              "Environment", StringValue("Urban"),
-                              "CitySize", StringValue("Small"),
-                              "ShadowSigmaOutdoor", DoubleValue (7.0),
-                              "ShadowSigmaIndoor", DoubleValue (8.0),
-                              "ShadowSigmaExtWalls", DoubleValue (1.0),
-                              "InternalWallLoss", DoubleValue (10.0));
-  
+
 
 /* ===== MAC and PHY configuration ===== */
 
   YansWifiPhyHelper phy = YansWifiPhyHelper::Default ();
   phy.SetChannel (channel.Create ());
 
+  // set building propagation loss model
+  // see https://www.nsnam.org/doxygen/classns3_1_1_hybrid_buildings_propagation_loss_model.html#details
+  Ptr<HybridBuildingsPropagationLossModel> buildingLossModel = CreateObject<HybridBuildingsPropagationLossModel>();
+  Config::Set ("/ChannelList/*/$ns3::YansWifiChannel/PropagationLossModel", PointerValue (buildingLossModel));
+  Config::Set ("/ChannelList/*/$ns3::YansWifiChannel/PropagationLossModel/$ns3::HybridBuildingsPropagationLossModel/Frequency", DoubleValue (5 * 1e9));
+  Config::Set ("/ChannelList/*/$ns3::YansWifiChannel/PropagationLossModel/$ns3::HybridBuildingsPropagationLossModel/Environment", StringValue("Urban"));
+  Config::Set ("/ChannelList/*/$ns3::YansWifiChannel/PropagationLossModel/$ns3::HybridBuildingsPropagationLossModel/CitySize", StringValue("Small"));
+  Config::Set ("/ChannelList/*/$ns3::YansWifiChannel/PropagationLossModel/$ns3::HybridBuildingsPropagationLossModel/ShadowSigmaOutdoor", DoubleValue (7.0));
+  Config::Set ("/ChannelList/*/$ns3::YansWifiChannel/PropagationLossModel/$ns3::HybridBuildingsPropagationLossModel/ShadowSigmaIndoor", DoubleValue (8.0));
+  Config::Set ("/ChannelList/*/$ns3::YansWifiChannel/PropagationLossModel/$ns3::HybridBuildingsPropagationLossModel/ShadowSigmaExtWalls", DoubleValue (1.0));
+  Config::Set ("/ChannelList/*/$ns3::YansWifiChannel/PropagationLossModel/$ns3::HybridBuildingsPropagationLossModel/InternalWallLoss",  DoubleValue (wallsLoss));
+  
+
   WifiHelper wifi;
-  WifiMacHelper mac; //802.11ax
+  WifiMacHelper mac; //802.11ac
   wifi.SetStandard (WIFI_PHY_STANDARD_80211ac);
 
-  //MAC parameters
-  //for complete list of available parameters - see Attributes on https://www.nsnam.org/doxygen/classns3_1_1_adhoc_wifi_mac.html#pri-methods
-  //mac.SetType ("ns3::AdhocWifiMac",
-  //             "QosSupported", BooleanValue (true),
-  //             "Ssid", SsidValue (Ssid ("TEST")) );
-
+  //WiFi Remote Station Manager
   //MINSTREL rate manager for 802.11n/ac - see Attributes on https://www.nsnam.org/doxygen/classns3_1_1_minstrel_ht_wifi_manager.html#pri-attribs
   wifi.SetRemoteStationManager ("ns3::MinstrelHtWifiManager");
 
-
-  //WiFi Remote Station Manager parameters 
-
-  //Constant Rate setting - see Attributes on https://www.nsnam.org/doxygen/classns3_1_1_constant_rate_wifi_manager.html#pri-attribs
-  //wifi.SetRemoteStationManager ("ns3::ConstantRateWifiManager",
-	//						    "DataMode", StringValue ("OfdmRate54Mbps") ); 
-
+  // MAC parameters
+  // see Attributes on https://www.nsnam.org/doxygen/classns3_1_1_adhoc_wifi_mac.html#pri-methods				    "DataMode", StringValue ("OfdmRate54Mbps") ); 
   Ssid ssid = Ssid ("TEST");
 
   mac.SetType ("ns3::StaWifiMac", "Ssid", SsidValue (ssid));
@@ -289,9 +287,17 @@ int main (int argc, char *argv[])
   PacketSinkHelper sink ("ns3::UdpSocketFactory", InetSocketAddress (destination, 1000) );
   sink.Install (dest);
 
+  // Print ap position
+  std::cout << "----------------------AP position--------------------" << std::endl;
+  std::cout << "AP position: (" << dest->GetObject<MobilityModel>()->GetPosition().x << ", ";
+  std::cout << dest->GetObject<MobilityModel>()->GetPosition().y << ", ";
+  std::cout << dest->GetObject<MobilityModel>()->GetPosition().z << ")" << std::endl;
+
 
   //Configure CBR traffic sources
   DataRate dataRate = DataRate (1000000 * Mbps);
+
+  std::cout << "----------------------Stations position--------------------" << std::endl;
 
   for (uint32_t i = 0; i < nSTA; i++) 
     {
@@ -303,6 +309,11 @@ int main (int argc, char *argv[])
       cbr.SetAttribute ("StopTime",   TimeValue (simulationTime) );
 
       cbr.Install (node);
+
+      // Print station position
+      std::cout << "Station " << std::to_string(i) << " position: (" << node->GetObject<MobilityModel>()->GetPosition().x <<", ";
+      std::cout << node->GetObject<MobilityModel>()->GetPosition().y <<", ";
+      std::cout << node->GetObject<MobilityModel>()->GetPosition().z << ")" << std::endl;
 
     }
 

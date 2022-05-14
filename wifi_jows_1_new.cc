@@ -209,7 +209,7 @@ int main (int argc, char *argv[])
 
   //building definition:
   Ptr<Building> b = CreateObject <Building> ();
-    b->SetBoundaries (Box (0.0, 50.0, 0.0, 50.0, 0.0, 6.0));
+    b->SetBoundaries (Box (0.0, 20.0, 0.0, 30.0, 0.0, 6.0));
     b->SetBuildingType (Building::Office);
     b->SetExtWallsType (Building::ConcreteWithWindows);
     b->SetNFloors (floors);
@@ -238,7 +238,7 @@ int main (int argc, char *argv[])
   Config::Set ("/ChannelList/*/$ns3::YansWifiChannel/PropagationLossModel/$ns3::HybridBuildingsPropagationLossModel/ShadowSigmaOutdoor", DoubleValue (7.0));
   Config::Set ("/ChannelList/*/$ns3::YansWifiChannel/PropagationLossModel/$ns3::HybridBuildingsPropagationLossModel/ShadowSigmaIndoor", DoubleValue (8.0));
   Config::Set ("/ChannelList/*/$ns3::YansWifiChannel/PropagationLossModel/$ns3::HybridBuildingsPropagationLossModel/ShadowSigmaExtWalls", DoubleValue (1.0));
-  Config::Set ("/ChannelList/*/$ns3::YansWifiChannel/PropagationLossModel/$ns3::HybridBuildingsPropagationLossModel/InternalWallLoss",  DoubleValue (2.0));
+  Config::Set ("/ChannelList/*/$ns3::YansWifiChannel/PropagationLossModel/$ns3::HybridBuildingsPropagationLossModel/InternalWallLoss",  DoubleValue (wallsLoss));
   
 
   WifiHelper wifi;
@@ -298,9 +298,9 @@ int main (int argc, char *argv[])
 
   // Print ap position
   std::cout << "----------------------AP position--------------------" << std::endl;
-  std::cout << "AP position x: " << dest->GetObject<MobilityModel>()->GetPosition().x <<std::endl;
-  std::cout << "AP position y: " << dest->GetObject<MobilityModel>()->GetPosition().y <<std::endl;
-  std::cout << "AP position z: " << dest->GetObject<MobilityModel>()->GetPosition().z <<std::endl;
+  std::cout << "AP position: (" << dest->GetObject<MobilityModel>()->GetPosition().x << ", ";
+  std::cout << dest->GetObject<MobilityModel>()->GetPosition().y << ", ";
+  std::cout << dest->GetObject<MobilityModel>()->GetPosition().z << ")" << std::endl;
 
 
   //Configure CBR traffic sources
@@ -320,9 +320,9 @@ int main (int argc, char *argv[])
       cbr.Install (node);
 
       // Print station position
-      std::cout << "Station " << std::to_string(i) << " position x: " << node->GetObject<MobilityModel>()->GetPosition().x <<std::endl;
-      std::cout << "Station " << std::to_string(i) << " position y: " << node->GetObject<MobilityModel>()->GetPosition().y <<std::endl;
-      std::cout << "Station " << std::to_string(i) << " position z: " << node->GetObject<MobilityModel>()->GetPosition().z <<std::endl;
+      std::cout << "Station " << std::to_string(i) << " position: (" << node->GetObject<MobilityModel>()->GetPosition().x <<", ";
+      std::cout << node->GetObject<MobilityModel>()->GetPosition().y <<", ";
+      std::cout << node->GetObject<MobilityModel>()->GetPosition().z << ")" << std::endl;
 
     }
 
