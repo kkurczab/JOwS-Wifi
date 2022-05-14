@@ -38,8 +38,11 @@
 #include <ns3/constant-position-mobility-model.h>
 #include <ns3/hybrid-buildings-propagation-loss-model.h>
 #include <ns3/mobility-building-info.h>
+#include <ns3/config-store-module.h>
+#include <ns3/mobility-building-info.h>
 
 #include <string>
+
 
 using namespace ns3; 
 
@@ -125,8 +128,8 @@ int main (int argc, char *argv[])
   uint16_t roomsInAxis = 2;
   uint16_t  floors = 3;
   double wallsLoss = 5.0;
+  double frequency = 2.4; //GHz
   bool rtsCts = false;
-
 
 
 /* ===== Command Line parameters ===== */
@@ -141,6 +144,7 @@ int main (int argc, char *argv[])
   cmd.AddValue ("roomsInAxis", "Number of room in x and y axis in building",   roomsInAxis);
   cmd.AddValue ("floors",      "Number of floors in building",                 floors);
   cmd.AddValue ("wallsLoss",   "Internal walls loss in db",                    wallsLoss);
+  cmd.AddValue ("frequency",   "Frequency [GHz] - 2.4 or 5",                   frequency);
   cmd.AddValue ("RTSCTS",      "use RTS/CTS?",                                 rtsCts);
 
 
@@ -151,7 +155,7 @@ int main (int argc, char *argv[])
   ns3::RngSeedManager::SetRun (seed);
  
   Packet::EnablePrinting ();
-
+  
   // enable or not rts/cts
   if (rtsCts) {
 	  Config::SetDefault("ns3::WifiRemoteStationManager::RtsCtsThreshold", StringValue ("0"));
@@ -168,29 +172,29 @@ int main (int argc, char *argv[])
 
 
 /* ======== Positioning / Mobility ======= */
-  
+
   Ptr<ListPositionAllocator> positionAlloc = CreateObject<ListPositionAllocator> ();
 
   //AP
-  positionAlloc->Add (Vector (2.0, 12.0, 0.0));
+  positionAlloc->Add (Vector (2.0, 12.0, 0));
 
   //Stations
   //Ground floor
-  positionAlloc->Add (Vector (2.0, 18.0, 0.0));
-  positionAlloc->Add (Vector (2.0, 2.0, 0.0));
-  positionAlloc->Add (Vector (8.0, 2.0, 0.0));
+  positionAlloc->Add (Vector (2.0, 18.0, 1));
+  positionAlloc->Add (Vector (2.0, 2.0, 1));
+  positionAlloc->Add (Vector (8.0, 2.0, 1));
 
   //First floor
-  positionAlloc->Add (Vector (2.0, 18.0, 2.0));    
-  positionAlloc->Add (Vector (8.0, 18.0, 2.0));
-  positionAlloc->Add (Vector (2.0, 2.0, 2.0));
-  positionAlloc->Add (Vector (6.0, 8.0, 2.0));
-  positionAlloc->Add (Vector (8.0, 5.0, 2.0));
-  positionAlloc->Add (Vector (6.0, 2.0, 2.0));
+  positionAlloc->Add (Vector (2.0, 18.0, 3.0));    
+  positionAlloc->Add (Vector (8.0, 18.0, 3.0));
+  positionAlloc->Add (Vector (2.0, 2.0, 3.0));
+  positionAlloc->Add (Vector (6.0, 8.0, 3.0));
+  positionAlloc->Add (Vector (8.0, 5.0, 3.0));
+  positionAlloc->Add (Vector (6.0, 2.0, 3.0));
 
   //Second floor
-  positionAlloc->Add (Vector (8.0, 18.0, 4.0));
-  positionAlloc->Add (Vector (2.0, 2.0, 4.0));
+  positionAlloc->Add (Vector (8.0, 18.0, 5.0));
+  positionAlloc->Add (Vector (2.0, 2.0, 5.0));
 
 
   MobilityHelper mobility;
@@ -221,14 +225,14 @@ int main (int argc, char *argv[])
 
 /* ===== MAC and PHY configuration ===== */
 
-  YansWifiPhyHelper phy = YansWifiPhyHelper::Default ();
+  YansWifiPhyHelper phy;
   phy.SetChannel (channel.Create ());
 
   // set building propagation loss model
   // see https://www.nsnam.org/doxygen/classns3_1_1_hybrid_buildings_propagation_loss_model.html#details
   Ptr<HybridBuildingsPropagationLossModel> buildingLossModel = CreateObject<HybridBuildingsPropagationLossModel>();
   Config::Set ("/ChannelList/*/$ns3::YansWifiChannel/PropagationLossModel", PointerValue (buildingLossModel));
-  Config::Set ("/ChannelList/*/$ns3::YansWifiChannel/PropagationLossModel/$ns3::HybridBuildingsPropagationLossModel/Frequency", DoubleValue (5 * 1e9));
+  Config::Set ("/ChannelList/*/$ns3::YansWifiChannel/PropagationLossModel/$ns3::HybridBuildingsPropagationLossModel/Frequency", DoubleValue (frequency * 1e9));
   Config::Set ("/ChannelList/*/$ns3::YansWifiChannel/PropagationLossModel/$ns3::HybridBuildingsPropagationLossModel/Environment", StringValue("Urban"));
   Config::Set ("/ChannelList/*/$ns3::YansWifiChannel/PropagationLossModel/$ns3::HybridBuildingsPropagationLossModel/CitySize", StringValue("Small"));
   Config::Set ("/ChannelList/*/$ns3::YansWifiChannel/PropagationLossModel/$ns3::HybridBuildingsPropagationLossModel/ShadowSigmaOutdoor", DoubleValue (7.0));
@@ -238,15 +242,21 @@ int main (int argc, char *argv[])
   
 
   WifiHelper wifi;
-  WifiMacHelper mac; //802.11ac
-  wifi.SetStandard (WIFI_PHY_STANDARD_80211ac);
+  WifiMacHelper mac; //802.11ax
+  if (frequency == 2.4){
+    wifi.SetStandard (WIFI_STANDARD_80211ax_2_4GHZ);
+  } else if (frequency == 5.0){
+    wifi.SetStandard (WIFI_STANDARD_80211ax_5GHZ);
+  } else {
+    NS_ABORT_MSG("Wrong frequency selected.\n");
+  }
 
   //WiFi Remote Station Manager
   //MINSTREL rate manager for 802.11n/ac - see Attributes on https://www.nsnam.org/doxygen/classns3_1_1_minstrel_ht_wifi_manager.html#pri-attribs
   wifi.SetRemoteStationManager ("ns3::MinstrelHtWifiManager");
 
   // MAC parameters
-  // see Attributes on https://www.nsnam.org/doxygen/classns3_1_1_adhoc_wifi_mac.html#pri-methods				    "DataMode", StringValue ("OfdmRate54Mbps") ); 
+  // see Attributes on https://www.nsnam.org/doxygen/classns3_1_1_adhoc_wifi_mac.html#pri-methods
   Ssid ssid = Ssid ("TEST");
 
   mac.SetType ("ns3::StaWifiMac", "Ssid", SsidValue (ssid));
@@ -280,7 +290,6 @@ int main (int argc, char *argv[])
 /* ===== Setting applications ===== */
 
   //Configure traffic destination (sink)
-  //uint32_t destinationSTANumber = nSTA; //for one common traffic destination
   Ipv4Address destination = apIf.GetAddress (0);
   Ptr<Node> dest = ap.Get (0);
 
@@ -339,12 +348,24 @@ int main (int argc, char *argv[])
 
   SimulationHelper::PopulateArpCache ();
   Simulator::Stop (simulationTime);
+
+  // To save parameters to file
+  /*
+  Config::SetDefault ("ns3::ConfigStore::Filename", StringValue ("output-attributes.txt"));
+  Config::SetDefault ("ns3::ConfigStore::FileFormat", StringValue ("RawText"));
+  Config::SetDefault ("ns3::ConfigStore::Mode", StringValue ("Save"));
+  ConfigStore outputConfig2;
+  outputConfig2.ConfigureDefaults ();
+  outputConfig2.ConfigureAttributes ();
+  */
+
   Simulator::Run ();
   Simulator::Destroy ();
 
 
 
 /* ===== printing results ===== */
+  std::cout << "---------------------------Results----------------" << std::endl;
 
   monitor->CheckForLostPackets ();
 
