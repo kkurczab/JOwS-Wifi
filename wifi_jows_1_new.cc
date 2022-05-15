@@ -127,8 +127,8 @@ int main (int argc, char *argv[])
   uint32_t seed = 1;
   uint16_t roomsInAxis = 2;
   uint16_t  floors = 3;
-  double wallsLoss = 5.0;
-  double frequency = 2.4; //GHz
+  double wallsLoss = 7.0;
+  double frequency = 5.0; //GHz
   bool rtsCts = false;
 
 
@@ -176,30 +176,30 @@ int main (int argc, char *argv[])
   Ptr<ListPositionAllocator> positionAlloc = CreateObject<ListPositionAllocator> ();
 
   //AP
-  positionAlloc->Add (Vector (2.0, 12.0, 0));
+  positionAlloc->Add (Vector (2.0, 20.0, 1.5));
 
   //Stations
   //Ground floor
-  positionAlloc->Add (Vector (2.0, 18.0, 1));
-  positionAlloc->Add (Vector (2.0, 2.0, 1));
-  positionAlloc->Add (Vector (8.0, 2.0, 1));
+  positionAlloc->Add (Vector (3.0, 25.0, 1.0));
+  positionAlloc->Add (Vector (3.0, 3.0, 1.0));
+  positionAlloc->Add (Vector (17.0, 3.0, 1.0));
 
   //First floor
-  positionAlloc->Add (Vector (2.0, 18.0, 3.0));    
-  positionAlloc->Add (Vector (8.0, 18.0, 3.0));
-  positionAlloc->Add (Vector (2.0, 2.0, 3.0));
-  positionAlloc->Add (Vector (6.0, 8.0, 3.0));
-  positionAlloc->Add (Vector (8.0, 5.0, 3.0));
-  positionAlloc->Add (Vector (6.0, 2.0, 3.0));
+  positionAlloc->Add (Vector (3.0, 25.0, 3.0));    
+  positionAlloc->Add (Vector (3.0, 3.0, 3.0));
+  positionAlloc->Add (Vector (17.0, 25.0, 3.0));
+  positionAlloc->Add (Vector (12.0, 3.0, 3.0));
+  positionAlloc->Add (Vector (17.0, 7.0, 3.0));
+  positionAlloc->Add (Vector (12.0, 12.0, 3.0));
 
   //Second floor
-  positionAlloc->Add (Vector (8.0, 18.0, 5.0));
-  positionAlloc->Add (Vector (2.0, 2.0, 5.0));
+  positionAlloc->Add (Vector (17.0, 25.0, 5.0));
+  positionAlloc->Add (Vector (3.0, 3.0, 5.0));
 
 
   MobilityHelper mobility;
   mobility.SetPositionAllocator (positionAlloc);
-  mobility.SetMobilityModel ("ns3::ConstantVelocityMobilityModel");
+  mobility.SetMobilityModel ("ns3::ConstantPositionMobilityModel");
   mobility.Install (ap);
   mobility.Install (sta);
 
@@ -210,7 +210,7 @@ int main (int argc, char *argv[])
   //building definition:
   Ptr<Building> b = CreateObject <Building> ();
     b->SetBoundaries (Box (0.0, 20.0, 0.0, 30.0, 0.0, 6.0));
-    b->SetBuildingType (Building::Office);
+    b->SetBuildingType (Building::Residential);
     b->SetExtWallsType (Building::ConcreteWithWindows);
     b->SetNFloors (floors);
     b->SetNRoomsX (roomsInAxis);
