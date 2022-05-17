@@ -131,6 +131,13 @@ int main (int argc, char *argv[])
   double frequency = 2.4; //GHz
   bool rtsCts = false;
 
+  //building
+  double xmin = 0;
+  double xmax = 10;
+  double ymin = 0;
+  double ymax = 20;
+  double zmin = 0; 
+  double zmax = 6;
 
 /* ===== Command Line parameters ===== */
 
@@ -176,25 +183,25 @@ int main (int argc, char *argv[])
   Ptr<ListPositionAllocator> positionAlloc = CreateObject<ListPositionAllocator> ();
 
   //AP
-  positionAlloc->Add (Vector (2.0, 12.0, 0));
+  positionAlloc->Add (Vector (4.0, 11.0, 1));
 
   //Stations
   //Ground floor
-  positionAlloc->Add (Vector (2.0, 18.0, 1));
-  positionAlloc->Add (Vector (2.0, 2.0, 1));
-  positionAlloc->Add (Vector (8.0, 2.0, 1));
+  positionAlloc->Add (Vector (3.0, 14.0, 1));
+  positionAlloc->Add (Vector (2.0, 7.0, 1));
+  positionAlloc->Add (Vector (7.0, 7.0, 1));
 
   //First floor
-  positionAlloc->Add (Vector (2.0, 18.0, 3.0));    
-  positionAlloc->Add (Vector (8.0, 18.0, 3.0));
-  positionAlloc->Add (Vector (2.0, 2.0, 3.0));
+  positionAlloc->Add (Vector (2.0, 14.0, 3.0));    
+  positionAlloc->Add (Vector (7.0, 14.0, 3.0));
+  positionAlloc->Add (Vector (2.0, 7.0, 3.0));
   positionAlloc->Add (Vector (6.0, 8.0, 3.0));
+  positionAlloc->Add (Vector (7.0, 8.0, 3.0));
   positionAlloc->Add (Vector (8.0, 5.0, 3.0));
-  positionAlloc->Add (Vector (6.0, 2.0, 3.0));
 
   //Second floor
-  positionAlloc->Add (Vector (8.0, 18.0, 5.0));
-  positionAlloc->Add (Vector (2.0, 2.0, 5.0));
+  positionAlloc->Add (Vector (7.0, 14.0, 5.0));
+  positionAlloc->Add (Vector (2.0, 7.0, 5.0));
 
 
   MobilityHelper mobility;
@@ -209,8 +216,8 @@ int main (int argc, char *argv[])
 
   //building definition:
   Ptr<Building> b = CreateObject <Building> ();
-    b->SetBoundaries (Box (0.0, 20.0, 0.0, 30.0, 0.0, 6.0));
-    b->SetBuildingType (Building::Office);
+    b->SetBoundaries (Box (xmin, xmax, ymin, ymax, zmin, zmax));
+    b->SetBuildingType (Building::Residential);
     b->SetExtWallsType (Building::ConcreteWithWindows);
     b->SetNFloors (floors);
     b->SetNRoomsX (roomsInAxis);
@@ -221,6 +228,8 @@ int main (int argc, char *argv[])
   
   YansWifiChannelHelper channel = YansWifiChannelHelper::Default ();
   channel.SetPropagationDelay("ns3::ConstantSpeedPropagationDelayModel");
+
+  std::cout << "Building size: (" << xmin << ", " << xmax << ", " << ymin << ", " << ymax << ", " << zmin << ", " << zmax << ")" << std::endl;
 
 
 /* ===== MAC and PHY configuration ===== */
