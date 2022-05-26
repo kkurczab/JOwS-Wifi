@@ -127,7 +127,7 @@ int main (int argc, char *argv[])
   uint32_t seed = 1;
   uint16_t roomsInAxis = 2;
   uint16_t  floors = 3;
-  double wallsLoss = 5.0;
+  double wallsLoss = 7.0;
   double frequency = 2.4; //GHz
   bool rtsCts = false;
 
@@ -176,7 +176,7 @@ int main (int argc, char *argv[])
   Ptr<ListPositionAllocator> positionAlloc = CreateObject<ListPositionAllocator> ();
 
   //AP
-  positionAlloc->Add (Vector (2.0, 12.0, 0));
+  positionAlloc->Add (Vector (2.0,  12.0, 1.5));
 
   //Stations
   //Ground floor
@@ -209,7 +209,7 @@ int main (int argc, char *argv[])
 
   //building definition:
   Ptr<Building> b = CreateObject <Building> ();
-    b->SetBoundaries (Box (0.0, 20.0, 0.0, 30.0, 0.0, 6.0));
+    b->SetBoundaries (Box (0.0, 10.0, 0.0, 20.0, 0.0, 6.0));
     b->SetBuildingType (Building::Office);
     b->SetExtWallsType (Building::ConcreteWithWindows);
     b->SetNFloors (floors);
